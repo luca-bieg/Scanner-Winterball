@@ -1,49 +1,20 @@
-const CACHE_NAME = 'kartei-cache-v1';
-const APP_SHELL = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-180.png',
-  './icon-192.png',
-  './icon-512.png'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => {})
-  );
-  self.skipWaiting();
+// Offline-Cache für den Einlass-Scanner (Build c5d1cb5c)
+const CACHE = 'einlass-c5d1cb5c';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())); });
+self.addEventListener('activate', (e) => {
+  e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('einlass-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-// Cache-first für die App-Shell, Netzwerk-Fallback für alles andere (z.B. Google Fonts),
-// mit Cache-Update im Hintergrund, damit die App auch offline vollständig startet.
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-
-      return cached || networkFetch;
-    })
-  );
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  const u = new URL(e.request.url);
+  if (u.origin !== location.origin) return;
+  // Cache zuerst (schnell, offline-fest); im Hintergrund aktualisieren, wenn Netz da ist
+  e.respondWith(caches.open(CACHE).then(async (c) => {
+    const hit = await c.match(e.request, { ignoreSearch: true });
+    const net = fetch(e.request).then((r) => { if (r && r.ok) c.put(e.request, r.clone()); return r; }).catch(() => null);
+    if (hit) { e.waitUntil(net); return hit; }
+    const r = await net;
+    return r || (e.request.mode === 'navigate' ? c.match('./index.html') : Response.error());
+  }));
 });

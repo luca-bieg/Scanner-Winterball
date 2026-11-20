@@ -1,0 +1,9 @@
+EINLASS-SCANNER (fürs iPhone am Eingang)
+1. ZIP entpacken, den INHALT (nicht den Ordner) in ein neues GitHub-Repo hochladen, z. B. "winterball-scanner"
+2. Repo -> Settings -> Pages -> Branch "main", Ordner "/ (root)" -> Save
+3. Am iPhone in Safari die Adresse öffnen: https://DEINNAME.github.io/winterball-scanner/
+   Kamera erlauben, Teilen-Symbol -> "Zum Home-Bildschirm"
+4. App einmal MIT Internet öffnen, unter "Daten" muss stehen: Offline-Betrieb bereit
+5. Unter "Daten" die gaesteliste-....json aus dem Generator laden
+6. Testlauf: 1-2 Tickets scannen, Flugmodus an, nochmal scannen, danach "Alle Einlässe zurücksetzen"
+Grün = gültig, Orange = schon eingelöst, Rot = unbekannt.
