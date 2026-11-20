@@ -181,7 +181,7 @@ a{color:var(--ice)}
         <p>Setzt alle Einlässe zurück, die Gästeliste bleibt. Vor dem Ball einmal ausführen, wenn ihr getestet habt.</p>
         <button class="btn danger" id="bReset">Alle Einlässe zurücksetzen</button>
       </div>
-      <p style="color:var(--muted);font-size:12px;text-align:center">Gästenamen bleiben auf diesem Gerät gespeichert und werden nirgends hochgeladen.<br>Version c5d1cb5c</p>
+      <p style="color:var(--muted);font-size:12px;text-align:center">Gästenamen bleiben auf diesem Gerät gespeichert und werden nirgends hochgeladen.<br>Version c5d1cb5c-1</p>
     </section>
   </main>
 
@@ -865,17 +865,45 @@ function stopCamera() {
   if (wakeLock) { try { wakeLock.release(); } catch (e) { /* egal */ } wakeLock = null; }
   if (wantCam) camMsg('Kamera pausiert.', true);
 }
+// Ein QR-Code muss eine volle Sekunde durchgehend erkannt werden,
+ // bevor er als Ticket akzeptiert wird.
+let scanCandidate = '';
+let scanCandidateSince = 0;
+
 function tick() {
   loopTimer = setTimeout(tick, 70);
   if (!stream || paused || document.hidden || view !== 'scan') return;
   const vw = video.videoWidth, vh = video.videoHeight;
-  if (video.readyState < 2 || !vw) return;
+  if (video.readyState < 2 || !vw) {
+    scanCandidate = '';
+    scanCandidateSince = 0;
+    return;
+  }
   const sc = Math.min(1, 1280 / Math.max(vw, vh)), w = Math.round(vw * sc), h = Math.round(vh * sc);
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
   ctx.drawImage(video, 0, 0, w, h);
   let r = null;
   try { r = QRDecode(ctx.getImageData(0, 0, w, h).data, w, h); } catch (e) { /* Frame überspringen */ }
-  if (r && r.text) onCode(r.text, 'scan');
+
+  if (!r || !r.text) {
+    scanCandidate = '';
+    scanCandidateSince = 0;
+    return;
+  }
+
+  const detectedText = String(r.text);
+  const now = Date.now();
+  if (detectedText !== scanCandidate) {
+    scanCandidate = detectedText;
+    scanCandidateSince = now;
+    return;
+  }
+
+  if (now - scanCandidateSince >= 1000) {
+    scanCandidate = '';
+    scanCandidateSince = 0;
+    onCode(detectedText, 'scan');
+  }
 }
 $('#btnCam').addEventListener('click', () => { wantCam = true; startCamera(); });
 document.addEventListener('visibilitychange', () => {
